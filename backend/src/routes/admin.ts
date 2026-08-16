@@ -153,6 +153,9 @@ adminRoutes.post('/matches/update-room', async (req, res) => {
             room_password
         }, { onConflict: 'match_id' });
 
+        // Update match status to 'ongoing' so it disappears from the joinable list!
+        await supabaseAdmin.from('matches').update({ status: 'ongoing' }).eq('id', match_id);
+
         // Notify participants
         const { data: participants } = await supabaseAdmin.from('match_participants').select('user_id').eq('match_id', match_id);
         if (participants && participants.length > 0) {
