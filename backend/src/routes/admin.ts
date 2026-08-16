@@ -67,6 +67,14 @@ adminRoutes.post('/matches/review-result', async (req, res) => {
             }
         }
 
+        // Auto-complete match if no pending results are left
+        const { count } = await supabaseAdmin.from('match_results').select('*', { count: 'exact', head: true })
+            .eq('match_id', result.match_id).eq('status', 'pending');
+            
+        if (count === 0) {
+            await supabaseAdmin.from('matches').update({ status: 'completed' }).eq('id', result.match_id);
+        }
+
         res.status(200).json({ message: `Result ${action} successfully.` });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
