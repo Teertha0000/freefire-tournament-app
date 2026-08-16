@@ -124,6 +124,14 @@ class AuthRepository {
   }
 
   Future<void> logout() async {
+    try {
+      if (_isMobile) {
+        final GoogleSignIn googleSignIn = GoogleSignIn();
+        await googleSignIn.signOut();
+      }
+    } catch (_) {
+      // Ignore errors if they didn't log in with Google
+    }
     await _supabase.auth.signOut();
   }
 }

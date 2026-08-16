@@ -18,7 +18,7 @@ class UserRepository {
       
       final res = await http.get(
         Uri.parse('$backendApiUrl/user/profile'),
-        headers: {'Authorization': 'Bearer $token'},
+        headers: {'Authorization': 'Bearer $token', 'Connection': 'close'},
       );
       if (res.statusCode == 200) {
         yield UserModel.fromJson(jsonDecode(res.body));
@@ -37,7 +37,7 @@ class UserRepository {
 
       final res = await http.get(
         Uri.parse('$backendApiUrl/user/transactions'),
-        headers: {'Authorization': 'Bearer $token'},
+        headers: {'Authorization': 'Bearer $token', 'Connection': 'close'},
       );
       if (res.statusCode == 200) {
         final List data = jsonDecode(res.body);

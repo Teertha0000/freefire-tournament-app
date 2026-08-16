@@ -42,10 +42,11 @@ class _DepositScreenState extends ConsumerState<DepositScreen> {
       final paymentUrl = result['payment_url'];
       if (paymentUrl != null) {
         final uri = Uri.parse(paymentUrl);
-        if (await canLaunchUrl(uri)) {
-          // Launch in external browser because some MFS providers (like bKash) 
-          // use app intents that don't work well in WebViews.
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        
+        try {
+          // Launch in a secure Chrome Custom Tab overlay. It looks like it's inside 
+          // the app, but still has the security and deep-linking of Chrome!
+          await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
           
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -56,8 +57,8 @@ class _DepositScreenState extends ConsumerState<DepositScreen> {
             );
             Navigator.of(context).pop(); // Go back after opening browser
           }
-        } else {
-          throw Exception('Could not launch payment gateway.');
+        } catch (e) {
+          throw Exception('Could not launch payment gateway. No browser found?');
         }
       } else {
         throw Exception('Invalid response from server.');

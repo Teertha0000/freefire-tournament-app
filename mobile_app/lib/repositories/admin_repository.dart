@@ -10,8 +10,7 @@ class AdminRepository {
   String get _baseUrl => dotenv.env['ADMIN_API_URL'] ?? 'http://localhost:3001/admin';
 
   Future<Map<String, String>> _getAuthHeaders() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('custom_auth_token');
+    final token = Supabase.instance.client.auth.currentSession?.accessToken;
     if (token == null || token.isEmpty) throw Exception('Not logged in');
     return {
       'Content-Type': 'application/json',

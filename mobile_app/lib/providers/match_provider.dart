@@ -41,12 +41,11 @@ final myJoinedMatchIdsProvider = StreamProvider<List<String>>((ref) {
 final matchSecretsProvider = StreamProvider.family<Map<String, dynamic>?, String>((ref, matchId) async* {
   while (true) {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('custom_auth_token');
+      final token = Supabase.instance.client.auth.currentSession?.accessToken;
       if (token != null) {
         final res = await http.get(
           Uri.parse('$backendApiUrl/match/$matchId/secrets'),
-          headers: {'Authorization': 'Bearer $token'},
+          headers: {'Authorization': 'Bearer $token', 'Connection': 'close'},
         );
         if (res.statusCode == 200) {
           final data = jsonDecode(res.body);
@@ -96,7 +95,7 @@ final homeMatchesProvider = Provider.family<AsyncValue<List<MatchModel>>, String
   final joinedIds = ref.watch(myJoinedMatchIdsProvider).value ?? [];
 
   return allMatches.whenData((matches) => matches
-      .where((m) => m.category == category && !joinedIds.contains(m.id))
+      .where((m) => m.category == category && !joinedIds.contains(m.id) && m.status == 'upcoming')
       .toList());
 });
 
@@ -127,12 +126,11 @@ class MatchActionNotifier extends StateNotifier<MatchActionState> {
 
   Future<void> joinMatch(String matchId) async {
     state = const MatchActionState(isLoading: true);
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('custom_auth_token');
-      if (token == null) throw Exception('Authentication token missing.');
-      
-      await _repository.joinMatch(matchId, token);
+      try {
+        final token = _supabase.auth.currentSession?.accessToken;
+        if (token == null) throw Exception('Authentication token missing. Please log in again.');
+        
+        await _repository.joinMatch(matchId, token);
       state = const MatchActionState(isLoading: false, successMessage: 'Successfully joined the match!');
     } catch (e) {
       state = MatchActionState(isLoading: false, error: e.toString());
@@ -141,12 +139,11 @@ class MatchActionNotifier extends StateNotifier<MatchActionState> {
 
   Future<void> submitProof(String matchId, int kills, int rank, String screenshotUrl) async {
     state = const MatchActionState(isLoading: true);
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('custom_auth_token');
-      if (token == null) throw Exception('Authentication token missing.');
-      
-      await _repository.submitMatchResult(matchId, kills, rank, screenshotUrl, token);
+      try {
+        final token = _supabase.auth.currentSession?.accessToken;
+        if (token == null) throw Exception('Authentication token missing. Please log in again.');
+        
+        await _repository.submitMatchResult(matchId, kills, rank, screenshotUrl, token);
       state = const MatchActionState(isLoading: false, successMessage: 'Proof submitted successfully!');
     } catch (e) {
       state = MatchActionState(isLoading: false, error: e.toString());

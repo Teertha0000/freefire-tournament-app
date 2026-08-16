@@ -190,9 +190,12 @@ adminRoutes.post('/matches/auto-verify', async (req, res) => {
             return res.status(400).json({ error: 'No pending results found.' });
         }
 
-        // GUARD: Cannot auto-verify if deadline hasn't passed and not all players submitted
-        const expectedPlayers = actual_players ?? match.filled_spots;
+        // We used to block this if not all players submitted, but if the Admin 
+        // rejected someone or manually wants to distribute, we should let them!
         const totalSubmissionsCount = pendingResults.length;
+        const expectedPlayers = actual_players ?? match.filled_spots;
+        
+        /*
         const isDeadlinePassed = match.result_submission_deadline && (new Date() > new Date(match.result_submission_deadline));
         
         if (!isDeadlinePassed && totalSubmissionsCount < expectedPlayers) {
@@ -200,6 +203,7 @@ adminRoutes.post('/matches/auto-verify', async (req, res) => {
                 error: `Cannot verify yet: Only ${totalSubmissionsCount}/${expectedPlayers} players submitted. Please wait until they submit or the deadline passes.` 
             });
         }
+        */
 
         // Constraints
         const maxKills = Math.max(0, expectedPlayers - 1);
