@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/constants.dart';
+import 'core/theme.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/main_navigation.dart';
@@ -14,6 +16,12 @@ import 'providers/user_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Lock screen orientation to portrait
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
   
   await dotenv.load(fileName: ".env");
 
@@ -34,18 +42,9 @@ class FreeFireTournamentApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'FF Tournaments',
+      title: 'PlayRift',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0F172A), // Deep Slate background
-        primaryColor: const Color(0xFFEAB308), // Bold Yellow for FreeFire aesthetic
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFFEAB308),
-          secondary: Color(0xFFF97316), // Accent Orange
-        ),
-        // Premium typography using Outfit from Google Fonts
-      ),
+      theme: AppTheme.darkTheme,
       home: const AuthWrapper(),
     );
   }

@@ -1,2 +1,3 @@
 supabase_secrets.txt
 client_secret_*.json
+*.hprof

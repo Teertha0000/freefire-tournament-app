@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/user_provider.dart';
+import '../providers/auth_provider.dart';
 
 class CompleteProfileScreen extends ConsumerStatefulWidget {
   const CompleteProfileScreen({super.key});
@@ -27,11 +28,17 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
 
   void _submit() async {
     if (_formKey.currentState!.validate()) {
+      final authState = ref.read(authProvider);
+      if (authState.userId == null) return;
+
       await ref.read(profileUpdateProvider.notifier).updateProfile(
+        authState.userId!,
         _ignController.text.trim(),
         _uidController.text.trim(),
         _phoneController.text.trim(),
         _referralController.text.trim(),
+        'bKash', // Default payment method
+        'avatar_1', // Default avatar
       );
     }
   }

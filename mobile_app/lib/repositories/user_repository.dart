@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_model.dart';
@@ -50,7 +51,7 @@ class UserRepository {
   }
 
   /// API call to update the user profile
-  Future<void> updateProfile(String ign, String uid, String phone, String referralCode) async {
+  Future<void> updateProfile(String ign, String uid, String phone, String referralCode, String paymentMethod, String avatarId) async {
     final token = _supabase.auth.currentSession?.accessToken;
     if (token == null) throw Exception('Not logged in');
 
@@ -65,6 +66,8 @@ class UserRepository {
         'uid': uid,
         'phone': phone,
         'referral_code': referralCode,
+        'payment_method': paymentMethod,
+        'avatar_id': avatarId,
       }),
     );
     
@@ -72,6 +75,22 @@ class UserRepository {
       final err = jsonDecode(res.body)['error'] ?? 'Profile update failed';
       throw Exception(err);
     }
+  }
+
+  /// Uploads an avatar image to Supabase Storage and returns the public URL
+  Future<String> uploadAvatar(File imageFile, String userId) async {
+    final fileExt = imageFile.path.split('.').last;
+    final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+    final filePath = 'avatars/$fileName';
+
+    await _supabase.storage.from('avatars').upload(
+          filePath,
+          imageFile,
+          fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
+        );
+
+    final publicUrl = _supabase.storage.from('avatars').getPublicUrl(filePath);
+    return publicUrl;
   }
 
   /// API call to request a withdrawal securely

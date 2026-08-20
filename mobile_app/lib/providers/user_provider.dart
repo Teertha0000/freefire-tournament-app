@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../repositories/user_repository.dart';
 import '../models/user_model.dart';
@@ -65,10 +66,17 @@ class ProfileUpdateNotifier extends StateNotifier<ProfileUpdateState> {
   final UserRepository _repository;
   ProfileUpdateNotifier(this._repository) : super(const ProfileUpdateState());
 
-  Future<void> updateProfile(String ign, String uid, String phone, String referralCode) async {
+  Future<void> updateProfile(String userId, String ign, String uid, String phone, String referralCode, String paymentMethod, String currentAvatarId, {File? newAvatarFile}) async {
     state = const ProfileUpdateState(isLoading: true);
     try {
-      await _repository.updateProfile(ign, uid, phone, referralCode);
+      String finalAvatarId = currentAvatarId;
+      
+      // If a new local image was selected, upload it first
+      if (newAvatarFile != null) {
+        finalAvatarId = await _repository.uploadAvatar(newAvatarFile, userId);
+      }
+      
+      await _repository.updateProfile(ign, uid, phone, referralCode, paymentMethod, finalAvatarId);
       state = const ProfileUpdateState(isLoading: false, successMessage: 'Profile updated successfully!');
     } catch (e) {
       state = ProfileUpdateState(isLoading: false, error: e.toString());

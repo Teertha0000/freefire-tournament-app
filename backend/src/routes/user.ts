@@ -7,7 +7,7 @@ export const userRoutes = Router();
 // 1. Update Profile (Since RLS blocks direct DB writes from mobile app)
 userRoutes.post('/update-profile', requireAuth, async (req: any, res: any) => {
     const userId = req.user.sub;
-    const { ign, uid, phone, referral_code } = req.body;
+    const { ign, uid, phone, referral_code, payment_method, avatar_id } = req.body;
 
     try {
         let referredById = null;
@@ -25,8 +25,14 @@ userRoutes.post('/update-profile', requireAuth, async (req: any, res: any) => {
             }
         }
 
-        // Update the profile fields (ign, uid, phone) and optionally referred_by
-        const updateData: any = { ign, uid, phone };
+        // Update the profile fields (ign, uid, phone, payment_method, avatar_id) and optionally referred_by
+        const updateData: any = { 
+            ign, 
+            uid, 
+            phone,
+            payment_method: payment_method || 'bKash', // Default fallback
+            avatar_id: avatar_id || 'avatar_1'
+        };
         if (referredById) {
             updateData.referred_by = referredById;
         }

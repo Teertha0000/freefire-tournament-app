@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../core/theme.dart';
+import '../widgets/custom_curved_navbar.dart';
 import 'home_screen.dart';
 import 'my_matches_screen.dart';
 import 'profile_screen.dart';
@@ -14,7 +16,7 @@ class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
 
   final List<Widget> _screens = [
-    const DynamicTabsWrapper(),
+    const HomeScreen(),
     const MyMatchesScreen(),
     const ProfileScreen(),
   ];
@@ -22,15 +24,23 @@ class _MainNavigationState extends State<MainNavigation> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBody: true, // Crucial for 0 spacing under the navbar and letting body go behind
       body: _screens[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+      bottomNavigationBar: CustomCurvedNavBar(
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.gamepad), label: 'My Matches'),
-          BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet), label: 'Wallet'),
+          Icons.home_filled,
+          Icons.sports_esports_rounded,
+          Icons.person,
         ],
+        selectedIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        backgroundColor: AppTheme.surfaceGrey.withOpacity(0.95),
+        activeColor: AppTheme.primaryCyan,
+        inactiveColor: Colors.white,
       ),
     );
   }

@@ -6,6 +6,8 @@ class CountdownTimerWidget extends StatefulWidget {
   final String prefixText;
   final String finishedText;
   final VoidCallback? onFinished;
+  final TextStyle? style;
+  final TextStyle? finishedStyle;
 
   const CountdownTimerWidget({
     super.key,
@@ -13,6 +15,8 @@ class CountdownTimerWidget extends StatefulWidget {
     this.prefixText = 'Starts in: ',
     this.finishedText = 'LIVE NOW',
     this.onFinished,
+    this.style,
+    this.finishedStyle,
   });
 
   @override
@@ -70,13 +74,13 @@ class _CountdownTimerWidgetState extends State<CountdownTimerWidget> {
     if (_timeLeft == Duration.zero) {
       return Text(
         widget.finishedText,
-        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+        style: widget.finishedStyle ?? const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
       );
     }
 
     return Text(
       '${widget.prefixText}${_formatDuration(_timeLeft)}',
-      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.amber),
+      style: widget.style ?? const TextStyle(fontWeight: FontWeight.bold, color: Colors.amber),
     );
   }
 }

@@ -8,6 +8,8 @@ class UserModel {
   final String status;
   final String role;
   final String referralCode;
+  final String paymentMethod;
+  final String avatarId;
 
   const UserModel({
     required this.id,
@@ -19,6 +21,8 @@ class UserModel {
     required this.status,
     required this.role,
     required this.referralCode,
+    required this.paymentMethod,
+    required this.avatarId,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -32,6 +36,8 @@ class UserModel {
       status: json['status'] as String? ?? 'active',
       role: json['role'] as String? ?? 'user', // Default to user if null
       referralCode: json['referral_code'] as String? ?? '',
+      paymentMethod: json['payment_method'] as String? ?? 'bKash',
+      avatarId: json['avatar_id'] as String? ?? 'avatar_1',
     );
   }
 
