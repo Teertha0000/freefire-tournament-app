@@ -104,7 +104,7 @@ adminRoutes.post('/matches/close', async (req, res) => {
 
 // 1.5 Create Match
 adminRoutes.post('/matches/create', async (req, res) => {
-    const { title, category, entry_fee, total_spots, prize_pool, start_time, room_id, room_password, per_kill_prize, first_prize, second_prize, third_prize } = req.body;
+    const { title, category, entry_fee, total_spots, prize_pool, start_time, room_id, room_password, per_kill_prize, position_prizes } = req.body;
     try {
         if (!title || !category || entry_fee < 0 || total_spots <= 0 || prize_pool < 0 || !start_time) {
             return res.status(400).json({ error: 'Invalid or missing match data.' });
@@ -120,9 +120,7 @@ adminRoutes.post('/matches/create', async (req, res) => {
             total_spots,
             prize_pool,
             per_kill_prize: per_kill_prize || 0,
-            first_prize: first_prize || 0,
-            second_prize: second_prize || 0,
-            third_prize: third_prize || 0,
+            position_prizes: Array.isArray(position_prizes) ? position_prizes : [],
             start_time,
             status: 'upcoming'
         }).select().single();
@@ -219,10 +217,13 @@ adminRoutes.post('/matches/auto-verify', async (req, res) => {
         const claimedRanks = new Set<number>();
         let hasConflict = false;
 
+        const posPrizes = Array.isArray(match.position_prizes) ? match.position_prizes : [];
+        const maxRankToCheck = Math.max(3, posPrizes.length);
+
         for (const result of pendingResults) {
             totalClaimedKills += result.kills;
-            // Check rank uniqueness for top 3
-            if (result.rank >= 1 && result.rank <= 3) {
+            // Check rank uniqueness for top prize positions
+            if (result.rank >= 1 && result.rank <= maxRankToCheck) {
                 if (claimedRanks.has(result.rank)) {
                     hasConflict = true;
                     break;
@@ -232,7 +233,7 @@ adminRoutes.post('/matches/auto-verify', async (req, res) => {
         }
 
         if (hasConflict) {
-            return res.status(400).json({ error: 'Conflict Detected: Multiple players claimed the same top 3 rank. Please verify manually.' });
+            return res.status(400).json({ error: 'Conflict Detected: Multiple players claimed the same top rank. Please verify manually.' });
         }
 
         if (totalClaimedKills > maxKills) {
@@ -245,9 +246,10 @@ adminRoutes.post('/matches/auto-verify', async (req, res) => {
 
         for (const result of pendingResults) {
             let prize = result.kills * match.per_kill_prize;
-            if (result.rank === 1) prize += match.first_prize;
-            else if (result.rank === 2) prize += match.second_prize;
-            else if (result.rank === 3) prize += match.third_prize;
+            
+            if (result.rank > 0 && result.rank <= posPrizes.length) {
+                prize += (posPrizes[result.rank - 1] || 0);
+            }
 
             // Update result
             await supabaseAdmin.from('match_results').update({
@@ -272,7 +274,7 @@ adminRoutes.post('/matches/auto-verify', async (req, res) => {
             totalPrizeAwarded += prize;
         }
 
-        res.status(200).json({ message: `Successfully auto-verified ${approvedCount} results. Awarded ${totalPrizeAwarded} Tk total.` });
+        res.status(200).json({ message: `Successfully auto-verified ${approvedCount} results. Awarded ৳${totalPrizeAwarded} total prizes.` });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
     }
@@ -283,17 +285,72 @@ adminRoutes.post('/matches/admin-proof', async (req, res) => {
     const { match_id, proof_url } = req.body;
     try {
         if (!match_id || !proof_url) {
-            return res.status(400).json({ error: 'match_id and proof_url are required.' });
+            return res.status(400).json({ error: 'match_id and proof_url are required' });
         }
-        
-        const { error } = await supabaseAdmin.from('matches').update({ admin_proof_url: proof_url }).eq('id', match_id);
-        if (error) throw error;
 
-        res.status(200).json({ message: 'Admin proof uploaded successfully.' });
+        await supabaseAdmin.from('matches').update({ admin_proof_url: proof_url }).eq('id', match_id);
+        res.status(200).json({ message: 'Admin proof uploaded successfully' });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
     }
 });
+
+// 1.9 Seed Demo Results for Verification Testing
+adminRoutes.post('/matches/seed-demo-results', async (req, res) => {
+    const { match_id } = req.body;
+    try {
+        if (!match_id) return res.status(400).json({ error: 'match_id is required' });
+
+        const { data: match } = await supabaseAdmin.from('matches').select('*').eq('id', match_id).single();
+        if (!match) return res.status(404).json({ error: 'Match not found' });
+
+        if (match.status !== 'calculating') {
+            await supabaseAdmin.from('matches').update({ status: 'calculating' }).eq('id', match_id);
+        }
+
+        let { data: users } = await supabaseAdmin.from('users').select('id, ign').limit(4);
+        if (!users || users.length === 0) {
+            return res.status(400).json({ error: 'No registered users found in database.' });
+        }
+
+        const demoProofs = [
+            'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1538481199705-c710c4e965fc?auto=format&fit=crop&w=800&q=80',
+            'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=800&q=80',
+        ];
+
+        const demoData = [
+            { rank: 1, kills: 6, proof_image_url: demoProofs[0] },
+            { rank: 2, kills: 4, proof_image_url: demoProofs[1] },
+            { rank: 3, kills: 2, proof_image_url: demoProofs[2] },
+            { rank: 4, kills: 1, proof_image_url: demoProofs[3] },
+        ];
+
+        // Clear existing pending results
+        await supabaseAdmin.from('match_results').delete().eq('match_id', match_id).eq('status', 'pending');
+
+        const inserted = [];
+        for (let i = 0; i < Math.min(users.length, demoData.length); i++) {
+            const row = {
+                match_id,
+                user_id: users[i].id,
+                rank: demoData[i].rank,
+                kills: demoData[i].kills,
+                proof_image_url: demoData[i].proof_image_url,
+                status: 'pending',
+            };
+            const { data } = await supabaseAdmin.from('match_results').upsert(row, { onConflict: 'match_id,user_id' }).select();
+            if (data) inserted.push(data);
+        }
+
+        res.status(200).json({ message: `Successfully generated ${inserted.length} demo submissions!`, count: inserted.length });
+    } catch (err: any) {
+        console.error('Seed Demo Results Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 
 // 2. Cancel Upcoming/Ongoing Match
 adminRoutes.post('/matches/cancel-upcoming', async (req, res) => {
@@ -373,31 +430,33 @@ adminRoutes.post('/matches/refund-historical', async (req, res) => {
             }
         }
 
-        // 2. Refund entry fees to everyone
+        // 2. Fast Parallel Batch Refund to everyone
         const { data: participants } = await supabaseAdmin.from('match_participants').select('user_id').eq('match_id', match_id);
         
         if (participants && participants.length > 0) {
             const refundAmount = match.entry_fee;
-            for (const p of participants) {
-                const { data: user } = await supabaseAdmin.from('users').select('withdrawable_balance').eq('id', p.user_id).single();
-                if (user) {
-                    await supabaseAdmin.rpc('adjust_balance', { p_user_id: p.user_id, p_amount: refundAmount, p_balance_type: 'withdrawable' });
-                    
-                    await supabaseAdmin.from('transactions').insert({
-                        user_id: p.user_id,
-                        amount: refundAmount,
-                        type: 'refund',
-                        reference_id: match_id,
-                        description: `Historical Match Reversal Refund: ${reason}`
-                    });
+            const refundPromises = participants.map(async (p) => {
+                await supabaseAdmin.rpc('adjust_balance', { p_user_id: p.user_id, p_amount: refundAmount, p_balance_type: 'withdrawable' });
+            });
+            await Promise.all(refundPromises);
 
-                    await supabaseAdmin.from('notifications').insert({
-                        user_id: p.user_id,
-                        title: 'Historical Match Reversed & Refunded',
-                        message: `The historical match "${match.title}" has been reversed. Reason: ${reason}. Your entry fee has been refunded. Any prizes awarded were retracted.`
-                    });
-                }
-            }
+            const txs = participants.map(p => ({
+                user_id: p.user_id,
+                amount: refundAmount,
+                type: 'refund',
+                reference_id: match_id,
+                description: `Match Refund: ${match.title} (${reason})`
+            }));
+            const notifs = participants.map(p => ({
+                user_id: p.user_id,
+                title: 'Match Refunded',
+                message: `The match "${match.title}" has been cancelled/reversed. Reason: ${reason}. Your entry fee (৳${refundAmount}) has been refunded.`
+            }));
+
+            await Promise.all([
+                supabaseAdmin.from('transactions').insert(txs),
+                supabaseAdmin.from('notifications').insert(notifs)
+            ]);
         }
 
         // 3. Mark match as cancelled
@@ -413,23 +472,19 @@ adminRoutes.post('/matches/refund-historical', async (req, res) => {
 // 3. Admin Stats (Dashboard)
 adminRoutes.get('/stats', async (req, res) => {
     try {
-        const [{ count: userCount }, { count: matchCount }, { count: wdCount }] = await Promise.all([
+        const [{ count: userCount }, { count: matchCount }, { count: wdCount }, { count: disputeCount }] = await Promise.all([
             supabaseAdmin.from('users').select('*', { count: 'exact', head: true }),
             supabaseAdmin.from('matches').select('*', { count: 'exact', head: true }).in('status', ['upcoming', 'ongoing']),
-            supabaseAdmin.from('withdrawals').select('*', { count: 'exact', head: true }).eq('status', 'pending')
+            supabaseAdmin.from('withdrawals').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+            supabaseAdmin.from('disputes').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
         ]);
-
-        // Simple revenue calculation (sum of all entry fees paid minus prizes distributed)
-        // For now, we'll just return a mock revenue or calculate sum of deposits.
-        // Let's do sum of all 'match_fee' transactions (they are negative, so we'll abs them)
-        const { data: revData } = await supabaseAdmin.from('transactions').select('amount').eq('type', 'match_fee');
-        const revenue = revData ? revData.reduce((acc, curr) => acc + Math.abs(curr.amount), 0) : 0;
 
         res.status(200).json({
             totalUsers: userCount || 0,
             activeMatches: matchCount || 0,
             pendingWithdrawalsCount: wdCount || 0,
-            totalRevenue: revenue
+            pendingDisputesCount: disputeCount || 0,
+            totalRevenue: 0
         });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
@@ -440,7 +495,18 @@ adminRoutes.get('/stats', async (req, res) => {
 adminRoutes.post('/withdrawals/approve', async (req, res) => {
     const { withdrawal_id } = req.body;
     try {
+        const { data: withdrawal } = await supabaseAdmin.from('withdrawals').select('*').eq('id', withdrawal_id).single();
+        if (!withdrawal) return res.status(404).json({ error: 'Withdrawal not found' });
+
         await supabaseAdmin.from('withdrawals').update({ status: 'approved', updated_at: new Date().toISOString() }).eq('id', withdrawal_id);
+
+        // Notify user
+        await supabaseAdmin.from('notifications').insert({
+            user_id: withdrawal.user_id,
+            title: 'Withdrawal Approved',
+            message: `Your withdrawal of ৳${withdrawal.amount} via ${withdrawal.payment_method} (${withdrawal.phone_number}) has been sent!`
+        });
+
         res.status(200).json({ message: 'Withdrawal approved.' });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
@@ -456,18 +522,23 @@ adminRoutes.post('/withdrawals/reject', async (req, res) => {
         if (withdrawal.status !== 'pending') return res.status(400).json({ error: 'Already processed' });
 
         // Refund user
-        const { data: user } = await supabaseAdmin.from('users').select('withdrawable_balance').eq('id', withdrawal.user_id).single();
-        if (user) {
-            await supabaseAdmin.rpc('adjust_balance', { p_user_id: withdrawal.user_id, p_amount: withdrawal.amount, p_balance_type: 'withdrawable' });
-            await supabaseAdmin.from('transactions').insert({
+        await supabaseAdmin.rpc('adjust_balance', { p_user_id: withdrawal.user_id, p_amount: withdrawal.amount, p_balance_type: 'withdrawable' });
+        
+        await Promise.all([
+            supabaseAdmin.from('transactions').insert({
                 user_id: withdrawal.user_id,
                 amount: withdrawal.amount,
                 type: 'refund',
-                description: `Withdrawal Rejected: ${reason || 'Admin discretion'}`
-            });
-        }
+                description: `Withdrawal Refunded: ${reason || 'Admin rejected'}`
+            }),
+            supabaseAdmin.from('notifications').insert({
+                user_id: withdrawal.user_id,
+                title: 'Withdrawal Rejected & Refunded',
+                message: `Your withdrawal request of ৳${withdrawal.amount} was rejected (${reason || 'Admin discretion'}). The funds have been refunded to your wallet.`
+            }),
+            supabaseAdmin.from('withdrawals').update({ status: 'rejected', updated_at: new Date().toISOString() }).eq('id', withdrawal_id)
+        ]);
 
-        await supabaseAdmin.from('withdrawals').update({ status: 'rejected', updated_at: new Date().toISOString() }).eq('id', withdrawal_id);
         res.status(200).json({ message: 'Withdrawal rejected and refunded.' });
     } catch (err: any) {
         res.status(500).json({ error: err.message });

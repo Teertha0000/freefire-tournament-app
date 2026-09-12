@@ -9,7 +9,7 @@ financeRoutes.post('/withdraw', requireAuth, async (req: any, res: any) => {
     const userId = req.user.sub;
     const { amount, payment_method, phone_number } = req.body;
 
-    if (amount < 50) return res.status(400).json({ error: 'Minimum withdrawal is 50 Tk.' });
+    if (amount < 10) return res.status(400).json({ error: 'Minimum withdrawal is 10 Tk.' });
 
     try {
         // Fetch current balance
@@ -45,6 +45,13 @@ financeRoutes.post('/withdraw', requireAuth, async (req: any, res: any) => {
             amount: -amount,
             type: 'withdrawal',
             description: `Requested Withdrawal via ${payment_method}`
+        });
+
+        // Insert notification for user
+        await supabaseAdmin.from('notifications').insert({
+            user_id: userId,
+            title: 'Withdrawal Requested',
+            message: `Your withdrawal of ৳${amount} via ${payment_method} (${phone_number}) is under review.`
         });
 
         res.status(200).json({ message: 'Withdrawal request submitted successfully.' });

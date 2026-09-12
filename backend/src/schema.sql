@@ -65,9 +65,8 @@ CREATE TABLE matches (
     total_spots INT NOT NULL,
     prize_pool DECIMAL(10, 2) NOT NULL,
     per_kill_prize DECIMAL(10, 2) DEFAULT 0.00,
-    first_prize DECIMAL(10, 2) DEFAULT 0.00,
-    second_prize DECIMAL(10, 2) DEFAULT 0.00,
-    third_prize DECIMAL(10, 2) DEFAULT 0.00,
+    position_prizes JSONB DEFAULT '[]'::jsonb,
+
     status match_status DEFAULT 'upcoming',
     start_time TIMESTAMP WITH TIME ZONE NOT NULL,
     min_players INT DEFAULT 10,
@@ -153,6 +152,34 @@ CREATE TABLE disputes (
     resolved_at TIMESTAMP WITH TIME ZONE
 );
 
+-- Hero Slides (Dynamic Home Screen Banners)
+CREATE TABLE hero_slides (
+    id VARCHAR(100) PRIMARY KEY,
+    title VARCHAR(150) DEFAULT '',
+    subtitle TEXT DEFAULT '',
+    tag VARCHAR(50) DEFAULT 'FEATURED',
+    badge_color_hex VARCHAR(20) DEFAULT '#00E5FF',
+    title_color_hex VARCHAR(20) DEFAULT '#FFFFFF',
+    subtitle_color_hex VARCHAR(20) DEFAULT '#B0B7C3',
+    image_url TEXT,
+    image_opacity DECIMAL(4, 2) DEFAULT 0.45,
+    action_type VARCHAR(50) DEFAULT 'none',
+    action_value TEXT,
+    title_font_size DECIMAL(5, 2) DEFAULT 24.0,
+    subtitle_font_size DECIMAL(5, 2) DEFAULT 13.0,
+    tag_font_size DECIMAL(5, 2) DEFAULT 10.0,
+    card_height DECIMAL(5, 2) DEFAULT 185.0,
+    tag_x DECIMAL(5, 3) DEFAULT 0.060,
+    tag_y DECIMAL(5, 3) DEFAULT 0.120,
+    title_x DECIMAL(5, 3) DEFAULT 0.060,
+    title_y DECIMAL(5, 3) DEFAULT 0.320,
+    subtitle_x DECIMAL(5, 3) DEFAULT 0.060,
+    subtitle_y DECIMAL(5, 3) DEFAULT 0.680,
+    sort_order INT DEFAULT 0,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ==========================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- ==========================================
@@ -168,11 +195,14 @@ ALTER TABLE match_results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE disputes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE match_secrets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE hero_slides ENABLE ROW LEVEL SECURITY;
 
 -- 1. Matches & Participants are public to READ (so the app can show them)
 CREATE POLICY "Matches are viewable by everyone" ON matches FOR SELECT USING (true);
 CREATE POLICY "Participants are viewable by everyone" ON match_participants FOR SELECT USING (true);
 CREATE POLICY "Results are viewable by everyone" ON match_results FOR SELECT USING (true);
+CREATE POLICY "Hero slides are viewable by everyone" ON hero_slides FOR SELECT USING (true);
+CREATE POLICY "Admins can manage hero slides" ON hero_slides FOR ALL USING (true);
 
 -- Participants can view secrets
 CREATE POLICY "Participants can view secrets" ON match_secrets FOR SELECT
